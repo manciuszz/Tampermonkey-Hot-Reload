@@ -20,4 +20,6 @@ Since this Hot-Reload currently works by taking advantage of HTTP long-polling t
 3. Enjoy.
 
 # Preview
-![Tutorial](https://thumbs.gfycat.com/AcceptableOnlyHamster-size_restricted.gif)
+![Tutorial](https://giant.gfycat.com/AcceptableOnlyHamster.gif)
+
+# [Download .exe version of the script from GitHub releases](https://github.com/manciuszz/Tampermonkey-Hot-Reload/releases/download/v0.1/hotreload.zip)
