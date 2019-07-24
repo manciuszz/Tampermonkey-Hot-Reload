@@ -44,16 +44,37 @@ class Router {
 			res.status := 200
 		}
 		
-		 _asset#(ByRef req, ByRef res) {
-			 res.SetBodyText(req.queries.path)
-			 res.status := 200
-		 }
+		_asset#(ByRef req, ByRef res) {
+			res.SetBodyText(req.queries.path)
+			res.status := 200
+		}
+		 
+		_import(ByRef req, ByRef res) {
+			payload := JSON.Load(req.body)
+			
+			if (payload.fileList) {
+				sourceCode := ""
+				if (IsObject(payload.fileList)) {
+					for i, filePath in payload.fileList {
+						sourceCode .= (Utilities.FileRead(filePath, false) . "`n")
+					}
+				} else {
+					sourceCode .= (Utilities.FileRead(payload.fileList, false) . "`n")
+				}				
+			}
+			
+			res.headers["Access-Control-Allow-Origin"] := "*"
+			res.SetBodyText(JSON.Dump(sourceCode))
+			res.status := 200
+		}		 
 		
 		_update(ByRef req, ByRef res) {
 			payload := JSON.Load(req.body)
 			
 			if (payload.unbind) {
 				WatchHelper.unbindWatcher(payload.path)
+			} else if (payload.extFilter && payload.reloadFile) {
+				WatchHelper.bindWatcher(payload.path, payload.extFilter, payload.reloadFile)
 			} else if (payload.extFilter) {
 				WatchHelper.bindWatcher(payload.path, payload.extFilter)
 			} else if (payload.path) {
@@ -77,7 +98,7 @@ class Router {
 			res.headers["Access-Control-Allow-Origin"] := "*"
 			res.headers["Content-Type"] := "text/event-stream"
 			res.headers["Cache-Control"] := "no-cache"
-
+						
 			res.SetBodyText(DataStream.clear().retry(1).event("reload").setJSON(JSON.Dump(Utilities.FileRead(changedScriptPath, false))).build())
 			res.status := 200
 			DataStream.clear()
@@ -208,12 +229,15 @@ class WatchHelper {
 		this.delimiter := "|"
 		this.watchFlag := 0x3 ; Watch for file modifications.
 		this.checkSubtree := true
-		this.filters := {}
+		this.properties := {}
 		this.bindWatcher(A_ScriptDir . "\projects")
 	}
 	
-	bindWatcher(path, extFilter := "user.js") {
+	bindWatcher(path, extFilter := "user.js", reloadFile := "") {
+		this.properties[path] := {}
+		
 		this.setExtension(path, extFilter)
+		this.setReloadFile(path, reloadFile)
 		WatchFolder(path, this._detectProjectChanges.name, this.checkSubtree, this.watchFlag)
 	}
 	
@@ -221,29 +245,36 @@ class WatchHelper {
 		WatchFolder(path, "**DEL")
 	}
 	
-	getExtensions(path := "") {
-		if (!path)
-			return this.filters
-		return this.filters[path]
+	getExtensions(path) {
+		return this.properties[path].filters
 	}
 	
-	getExtensionCount(path := "") {
+	getExtensionCount(path) {
 		return NumGet(&(this.getExtensions(path)) + 4 * A_PtrSize)
 	}
 	
 	setExtension(path, extFilter) {
-		this.filters[path] := {}
-			
 		if (extFilter) {
+			this.properties[path].filters := {}
 			extFilters := StrSplit(extFilter, this.delimiter)
 			for i, filter in extFilters
-				this.filters[path][filter] := filter
+				this.properties[path].filters[filter] := filter
+		}
+	}
+	
+	getReloadFile(path) {
+		return this.properties[path].reloadFile
+	}
+	
+	setReloadFile(path, reloadFile) {
+		if (reloadFile) {
+			this.properties[path].reloadFile := reloadFile
 		}
 	}
 
 	_pathCleaner(path) {
-	    path := StrReplace(path, "___jb_tmp___", "",, 1) ; Intellij IDEA postfix cleanup..
-	    path := StrReplace(path, "___jb_old___", "",, 1) ; Intellij IDEA postfix cleanup..
+	    path := StrReplace(path, "___jb_tmp___", "",, 1) ; Intellij IDEA auto-save feature postfix cleanup..
+	    path := StrReplace(path, "___jb_old___", "",, 1) ; Intellij IDEA auto-save feature postfix cleanup..
 	    return path
 	}
 	
@@ -261,6 +292,11 @@ class WatchHelper {
 				SplitPath, FullPath, FileName
 				for k, ext in this.getExtensions(Folder) {
 					if (InStr(FileName, ext)) {
+					
+						reloadFile := this.getReloadFile(Folder)
+						if (reloadFile)
+							FullPath := reloadFile
+												
 						DataStream.set(this._pathCleaner(FullPath))
 						PersistenceController.notifyHandlers()
 						return
