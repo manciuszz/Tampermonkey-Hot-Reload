@@ -115,6 +115,26 @@ class HttpServer
 }
 
 class Debug {
+	static _windowName := "AHK-Http Print Debug"
+	static _width := 300
+	static _height := 900
+	static _x := A_ScreenWidth - A_ScreenWidth / 3
+	static _y := 0
+	
+	setWindowSize(newWidth := "", newHeight := "", newX := "", newY := "", newName := "") {
+		if (newWidth)
+			this._width := newWidth
+		if (newHeight)
+			this._height := newHeight
+		if (newX)
+			this._x := newX
+		if (newY)
+			this._y := newY
+		if (newName)
+			this._windowName := newName
+		return this
+	}
+
 	print(msg := "", shouldClean := false) {
 		static log := "", printedLineCount := 0
 		if (shouldClean || printedLineCount > 45) {
@@ -124,8 +144,8 @@ class Debug {
 		log .= msg . "`n"
 		printedLineCount++
 		
-		SplashTextOn, 300, 900, AHK-Http Print Debug, % log
-		WinMove, AHK-Http Print Debug, , A_ScreenWidth - A_ScreenWidth / 3, 0
+		SplashTextOn, % this._width, % this._height, % this._windowName, % log
+		WinMove, % this._windowName, , % this._x, % this._y
 		return { clean: ObjBindMethod(this, "print", msg, true) }
 	}
 
@@ -142,8 +162,8 @@ class PersistenceController {
 		if (!this._handlers[socketId])
 			return
 
-		OnMessage(this._handlers[socketId].id, "")
-		this._handlers[socketId] := ""
+		OnMessage(this._handlers[socketId].id, this._handlers[socketId].handler, 0)
+		this._handlers.Delete(socketId)
 	}
 
 	setHandler(socketId := 0, identifierTag := "", params*) {	
@@ -152,6 +172,10 @@ class PersistenceController {
 						
 		this._handlers[socketId] := { id: "0x9" . socketId, identifier: identifierTag, handler: ObjBindMethod(this, "_persistenceHandler", params*) } 
 		OnMessage(this._handlers[socketId].id, this._handlers[socketId].handler, 1)
+	}
+	
+	socketIsPersistent(socketId) {
+		return !!this._handlers[socketId]
 	}
 	
 	notifyHandlers() {
@@ -179,7 +203,7 @@ class PersistenceController {
 }
 
 HttpHandler(sEvent, iSocket = 0, sName = 0, sAddr = 0, sPort = 0, ByRef bData = 0, bDataLength = 0) {
-	static sockets := {}
+	static lastSocket, sockets := {}
 
 	; Debug.print((!sockets[iSocket] ? "N" : "") . " " . iSocket . " " . sEvent)
     if (!sockets[iSocket]) {
@@ -190,13 +214,14 @@ HttpHandler(sEvent, iSocket = 0, sName = 0, sAddr = 0, sPort = 0, ByRef bData = 
 	socket := sockets[iSocket]
 
     if (sEvent == "DISCONNECTED") {
-		socket.request := false
-        sockets[iSocket] := false
+		socket.request := ""
+        sockets.Delete(iSocket)
 		PersistenceController.deleteHandler(iSocket)
-	} else if (sEvent == "SEND") { ; if (sEvent == "SEND" || sEvent == "SENDLAST") {	
-		if (socket.TrySend()) {
+	} else if (sEvent == "SEND") { ; if (sEvent == "SEND" || sEvent == "SENDLAST") {
+		if (!PersistenceController.socketIsPersistent(lastSocket) && socket.TrySend()) {
 			socket.Close()
         }
+		lastSocket := iSocket
     } else if (sEvent == "RECEIVED") {
         server := HttpServer.servers[sPort]
 

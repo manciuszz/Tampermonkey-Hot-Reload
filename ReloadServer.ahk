@@ -83,7 +83,7 @@ class Router {
 				return this.__404(req, res)
 			}
 			
-			res.headers["Access-Control-Allow-Origin"] := "*"
+			res.headers["Access-Control-Allow-Origin"] := "*"			
 			res.SetBodyText("OK")
 			res.status := 200
 		}
