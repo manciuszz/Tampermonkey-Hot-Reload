@@ -19,7 +19,7 @@ Since this Hot-Reload currently works by taking advantage of HTTP long-polling t
 3. Enjoy.
 
 # Preview
-![Tutorial](https://giant.gfycat.com/AcceptableOnlyHamster.gif)
+[![Tutorial](https://thumbs.gfycat.com/AcceptableOnlyHamster-size_restricted.gif)](https://giant.gfycat.com/AcceptableOnlyHamster.mp4)
 
 # API
 Note, that there is also the possibility to watch for file changes in custom folders. 

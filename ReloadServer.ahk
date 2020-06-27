@@ -227,9 +227,10 @@ class WatchHelper {
 	static _ := WatchHelper := new WatchHelper()
 	__New() {
 		this.delimiter := "|"
-		this.watchFlag := 0x3 ; Watch for file modifications.
+		this.watchFlag := 0x3|0x8 ; Watch for file modifications.
 		this.checkSubtree := true
 		this.properties := {}
+		
 		this.bindWatcher(A_ScriptDir . "\projects")
 	}
 	
@@ -238,6 +239,7 @@ class WatchHelper {
 		
 		this.setExtension(path, extFilter)
 		this.setReloadFile(path, reloadFile)
+		
 		WatchFolder(path, this._detectProjectChanges.name, this.checkSubtree, this.watchFlag)
 	}
 	
@@ -285,14 +287,14 @@ class WatchHelper {
 			
 		if (!this.base)
 			this.base := WatchHelper
-
+		
 		if (this.getExtensionCount(Folder)) {
 			for idx, change in Changes {
 				FullPath := change.Name
 				SplitPath, FullPath, FileName
 				for k, ext in this.getExtensions(Folder) {
 					if (InStr(FileName, ext)) {
-					
+						
 						reloadFile := this.getReloadFile(Folder)
 						if (reloadFile)
 							FullPath := reloadFile
